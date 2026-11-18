@@ -4,9 +4,9 @@
 
 ## 在 Windows 上启动
 
-1. 在仓库 **Actions → Windows build** 的成功运行中下载 `easy-adb-win-x64`，解压整个压缩包。
-2. 从 [Android 官方网站](https://developer.android.com/tools/releases/platform-tools) 下载 Windows 版 SDK Platform-Tools。将解压后的 `platform-tools` 文件夹放在 `EasyAdb.exe` 旁边，或者使用系统 PATH 中已有的 `adb.exe`。
-3. 双击 `EasyAdb.exe`。Windows 需要 [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。便携包自带 .NET，无需安装 Node.js。
+下载并运行 **EasyADB-Setup-x64.exe**。接受 Android SDK 许可后，安装程序会从 Google 下载并校验 Android 连接工具，并在需要时从微软安装 WebView2。首次安装请保持联网。完成后从开始菜单打开 **Easy ADB**，连接设备即可安装 APK。
+
+安装包可在仓库 **Actions → Windows build → easy-adb-windows-installer** 获取。应用安装到当前用户目录，支持 Windows 10 2004 及以上 x64 系统。
 
 ## 连接与安装
 

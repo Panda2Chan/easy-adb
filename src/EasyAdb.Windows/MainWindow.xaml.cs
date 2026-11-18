@@ -65,7 +65,7 @@ public partial class MainWindow : Window
             var candidate = Path.Combine(path, "adb.exe");
             if (File.Exists(candidate)) return new AdbClient(candidate);
         }
-        throw new FileNotFoundException("找不到 adb.exe。请将 Android SDK Platform-Tools 解压到 EasyAdb.exe 旁，保留 platform-tools 文件夹，然后刷新。");
+        throw new FileNotFoundException("缺少 ADB 连接组件。请重新运行 Easy ADB 安装程序修复。");
     }
 
     private void Send(object message)

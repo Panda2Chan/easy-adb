@@ -31,3 +31,14 @@ jobs:
         with:
           name: easy-adb-win-x64
           path: out/
+      - name: Build per-user Windows installer
+        shell: pwsh
+        run: ./installer/Build-Installer.ps1
+      - name: Verify installation and launch
+        shell: pwsh
+        run: ./installer/Test-Installation.ps1 -Installer (Resolve-Path releases/EasyADB-Setup-x64.exe)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: easy-adb-windows-installer
+          path: releases/EasyADB-Setup-x64.exe
+          if-no-files-found: error
