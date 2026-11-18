@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private readonly ApkDownloader downloader;
     private CancellationTokenSource? installing;
     private bool closing;
+    private readonly bool verifyInstallation = Environment.GetCommandLineArgs().Contains("--verify-installation");
 
     public MainWindow()
     {
@@ -44,10 +45,21 @@ public partial class MainWindow : Window
             web.NewWindowRequested += (_, e) => e.Handled = true;
             web.PermissionRequested += (_, e) => e.State = CoreWebView2PermissionState.Deny;
             web.WebMessageReceived += Receive;
+            if (verifyInstallation)
+            {
+                web.NavigationCompleted += (_, e) => Console.WriteLine($"Navigation: {e.IsSuccess} {e.WebErrorStatus}");
+                await web.AddScriptToExecuteOnDocumentCreatedAsync("""
+                    window.chrome.webview.addEventListener('message', ({data}) => {
+                        if (Array.isArray(data.result) && document.querySelector('#root h1'))
+                            window.chrome.webview.postMessage({action:'windowReady'});
+                    });
+                    """);
+            }
             web.Navigate(StartPage);
         }
         catch (Exception ex) when (!closing)
         {
+            if (verifyInstallation) { Console.Error.WriteLine(ex); Application.Current.Shutdown(1); return; }
             MessageBox.Show(this, "无法启动界面。请确认已安装 Microsoft Edge WebView2 Runtime。\n" + ex.Message, "Easy ADB");
             Close();
         }
@@ -82,6 +94,12 @@ public partial class MainWindow : Window
             using var document = JsonDocument.Parse(args.WebMessageAsJson);
             var request = document.RootElement;
             var action = request.GetProperty("action").GetString();
+            if (verifyInstallation && action == "windowReady")
+            {
+                Console.WriteLine("PASS: React window received installed ADB device list");
+                _ = Dispatcher.BeginInvoke(new Action(() => Application.Current.Shutdown(0)));
+                return;
+            }
             if (action == "drop")
             {
                 if (installing == null && args.AdditionalObjects?.OfType<CoreWebView2File>().FirstOrDefault() is { } file && IsApk(file.Path))

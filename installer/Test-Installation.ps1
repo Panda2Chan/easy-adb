@@ -43,7 +43,6 @@ function Start-Child([string]$File, [string[]]$Arguments, [string]$Directory, [s
         $info.Environment['ADB_SERVER_SOCKET'] = $socket
         $info.Environment['ANDROID_USER_HOME'] = Join-Path $run 'android'
         $info.Environment['WEBVIEW2_USER_DATA_FOLDER'] = $profileDir
-        $info.Environment['WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS'] = '--remote-debugging-port=0'
     }
     $info.RedirectStandardOutput = $Capture.IsPresent
     $info.RedirectStandardError = $Capture.IsPresent
@@ -56,34 +55,6 @@ function Wait-Child($Process, [int]$Seconds, [string]$Stage) {
         throw "$Stage timed out after $Seconds seconds."
     }
     if ($Process.ExitCode -ne 0) { throw "$Stage exited with code $($Process.ExitCode)." }
-}
-
-function Wait-Interface($Gui) {
-    # 由独立 WebView2 profile 获取实际调试端口。页面标题来自安装后的 index.html。
-    $portFiles = @((Join-Path $profileDir 'EBWebView\DevToolsActivePort'), (Join-Path $profileDir 'DevToolsActivePort'))
-    $deadline = [datetime]::UtcNow.AddSeconds(60)
-    $observed = 'Waiting for the application window and DevToolsActivePort.'
-    while ([datetime]::UtcNow -lt $deadline) {
-        $Gui.Refresh()
-        if ($Gui.HasExited) { throw "GUI exited before WebView2 was ready (code $($Gui.ExitCode))." }
-        $portFile = $portFiles | Where-Object { [IO.File]::Exists($_) } | Select-Object -First 1
-        if ($Gui.MainWindowHandle -ne [IntPtr]::Zero -and $portFile) {
-            try {
-                $debugPort = [int]([IO.File]::ReadAllLines($portFile)[0])
-                $pages = Invoke-RestMethod "http://127.0.0.1:$debugPort/json/list" -NoProxy -TimeoutSec 3
-                $observed = ($pages | Select-Object -Property @('type', 'url', 'title') | ConvertTo-Json -Compress)
-                foreach ($page in $pages) {
-                    if ($page.type -eq 'page' -and $page.url -eq 'https://easy-adb.invalid/index.html' -and
-                        $page.title -like 'Easy ADB*' -and $Gui.Responding) {
-                        Write-Host "GUI PID $($Gui.Id), WebView2 loaded $($page.url) [$($page.title)]"
-                        return
-                    }
-                }
-            } catch { $observed = $_.Exception.Message }
-        }
-        Start-Sleep -Milliseconds 300
-    }
-    throw "WebView2 readiness timed out. Window='$($Gui.MainWindowTitle)' Last observation: $observed"
 }
 
 $gui = $server = $null
@@ -127,8 +98,14 @@ try {
         [IO.File]::WriteAllText("$run\adb.log", $stdout.GetAwaiter().GetResult() + "`r`n" + $stderr.GetAwaiter().GetResult())
     }
     if ($stdout.Result -notmatch '(?m)^List of devices attached\s*$') { throw 'Unexpected adb devices -l output.' }
-    $gui = Start-Child (Join-Path $app 'EasyAdb.exe') @() $app -Isolated
-    Wait-Interface $gui
+    $gui = Start-Child (Join-Path $app 'EasyAdb.exe') @('--verify-installation') $app -Isolated -Capture
+    $guiOutput = $gui.StandardOutput.ReadToEndAsync()
+    $guiErrors = $gui.StandardError.ReadToEndAsync()
+    try { Wait-Child $gui 60 'Installed GUI' } finally {
+        Write-Host $guiOutput.GetAwaiter().GetResult()
+        Write-Host $guiErrors.GetAwaiter().GetResult()
+    }
+    if ($guiOutput.Result -notmatch 'PASS: React window received installed ADB device list') { throw 'Missing UI device-list acknowledgment.' }
 } catch {
     $errorsFound.Add($_.ToString())
 } finally {
