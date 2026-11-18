@@ -1,0 +1,600 @@
+@import "tailwindcss" source(none);
+@source "./";
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-input: var(--border);
+  --color-border: var(--border);
+}
+:root {
+  --background: #fff;
+  --foreground: #1d302a;
+  --primary: #146549;
+  --primary-foreground: white;
+  --muted: #edf2ef;
+  --muted-foreground: #55675f;
+  --accent: #e6f0eb;
+  --border: #d6dfda;
+  --destructive: #a83526;
+  --ring: #459e79;
+  color-scheme: light;
+  font-family: "DM Sans", "Segoe UI", "Microsoft YaHei UI", "PingFang SC",
+    sans-serif;
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    margin: 0;
+    color: var(--foreground);
+    background: #f4f6f4;
+  }
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+.shell {
+  min-height: 100vh;
+}
+header {
+  height: 64px;
+  background: #183a31;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 max(24px, calc((100vw - 1080px) / 2));
+}
+.brand,
+.host,
+h2,
+.section-head,
+.segments,
+.heading,
+.install-actions,
+.install-actions span,
+.task-state,
+.preview,
+.guide summary {
+  display: flex;
+  align-items: center;
+}
+.brand {
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  gap: 11px;
+}
+.logo {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: #caeac7;
+  color: #174832;
+  border-radius: 9px;
+}
+.host {
+  color: #ddede5;
+  font-size: 12px;
+  gap: 8px;
+}
+.host i,
+.task-state i {
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+  background: #a0afa9;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.host i.connected {
+  background: #a6dba5;
+}
+main {
+  max-width: 1128px;
+  padding: 34px 24px;
+  margin: auto;
+}
+.heading,
+.section-head,
+.install-actions {
+  justify-content: space-between;
+  gap: 14px;
+}
+.heading {
+  margin-bottom: 22px;
+}
+h1 {
+  font-size: clamp(25px, 3.5vw, 34px);
+  line-height: 1.3;
+  font-weight: 720;
+  letter-spacing: -0.055em;
+}
+.heading p,
+.muted,
+.hint,
+.empty p,
+.task-info,
+.dropzone small,
+.guide p {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.heading p {
+  margin-top: 6px;
+}
+.preview,
+.notice,
+.error {
+  background: #edf3ef;
+  padding: 10px 13px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.preview {
+  margin-bottom: 16px;
+  gap: 8px;
+}
+.error {
+  background: #fff0eb;
+  color: #962f22;
+  margin: 12px 0;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(218px, 0.82fr) minmax(0, 1.8fr);
+  gap: 16px;
+  align-items: start;
+}
+.panel {
+  background: white;
+  border: 1px solid #dce3df;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 2px 6px #253e3106;
+  min-width: 0;
+}
+.sidebar {
+  grid-row: span 2;
+}
+h2,
+.dialog h2 {
+  font-size: 17px;
+  font-weight: 660;
+  gap: 9px;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+}
+h2 svg {
+  width: 19px;
+  height: 19px;
+  color: #427460;
+}
+.counter {
+  border-radius: 5px;
+  padding: 1px 8px;
+  background: var(--muted);
+  font:
+    12px/21px "IBM Plex Mono",
+    Consolas,
+    monospace;
+}
+.sidebar > .hint {
+  margin-top: 7px;
+}
+.empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  padding: 28px 10px;
+}
+.device-icon {
+  background: #f1f5f2;
+  color: #607d6d;
+  padding: 13px;
+  border-radius: 50%;
+  margin-bottom: 12px;
+}
+.empty strong,
+.task-state strong {
+  font-size: 14px;
+  font-weight: 610;
+}
+.empty p {
+  max-width: 175px;
+  margin-top: 5px;
+}
+.refresh {
+  width: 100%;
+}
+.guide {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-top: 14px;
+  font-size: 13px;
+}
+.guide summary {
+  gap: 6px;
+  color: var(--muted-foreground);
+}
+.guide summary::after {
+  content: "+";
+  margin-left: auto;
+}
+.guide[open] summary::after {
+  content: "−";
+}
+.guide p {
+  margin-top: 8px;
+}
+.device-list {
+  display: grid;
+  gap: 7px;
+  max-height: 350px;
+  overflow-y: auto;
+  margin: 18px 0;
+}
+.device {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.device > svg {
+  flex-shrink: 0;
+  color: #406f59;
+}
+.device[aria-pressed="true"] {
+  background: #edf7ef;
+  border-color: #76a988;
+}
+.device-data {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.device-data strong {
+  font-size: 14px;
+}
+.device-data code,
+.device-data small {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.segments {
+  background: #f0f3f1;
+  padding: 3px;
+  border-radius: 9px;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin: 18px 0 14px;
+}
+.segments button {
+  height: 32px;
+  color: var(--muted-foreground);
+}
+.segments button[aria-pressed="true"] {
+  color: var(--foreground);
+  background: white;
+  box-shadow: 0 1px 4px #203e2f20;
+}
+.dropzone,
+.url-pane {
+  width: 100%;
+  min-height: 166px;
+  padding: 20px;
+  border-radius: 9px;
+}
+.dropzone {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 4px;
+  background-color: #f5f9f5;
+  background-image: radial-gradient(#58776224 0.8px, transparent 0.9px);
+  background-size: 10px 10px;
+  border: 1px dashed #99b4a1;
+}
+.dropzone:hover:not(:disabled),
+.dropzone.over {
+  background-color: #eaf5ea;
+  border-color: var(--primary);
+}
+.dropzone strong,
+.dropzone small {
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.dropzone strong {
+  font-size: 16px;
+  font-weight: 640;
+}
+.parcel {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: #e1efe0;
+  color: #336f4c;
+  border: 1px solid #c9dfc8;
+  border-radius: 13px;
+  margin-bottom: 6px;
+}
+.parcel svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
+}
+.url-pane {
+  background: #f7f9f7;
+}
+label {
+  display: block;
+  margin: 3px 0 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.url-pane input,
+.dialog input {
+  background: white;
+}
+.url-pane .hint,
+.dialog .hint {
+  margin-top: 8px;
+}
+.install-actions {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e8ece9;
+}
+.install-actions > span {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  gap: 7px;
+  overflow-wrap: anywhere;
+}
+.install-actions svg,
+.preview svg {
+  flex-shrink: 0;
+}
+.activity {
+  grid-column: 2;
+}
+.task-state {
+  gap: 9px;
+  margin-top: 14px;
+  overflow-wrap: anywhere;
+}
+.task-state svg {
+  width: 16px;
+  flex-shrink: 0;
+}
+.task-state code {
+  margin-left: auto;
+  font-size: 13px;
+}
+.running .task-state i,
+.success .task-state i {
+  background: var(--primary);
+}
+.success .task-state {
+  color: var(--primary);
+}
+.error.panel {
+  background: white;
+  color: var(--foreground);
+  margin: 0;
+}
+.error.panel .task-state {
+  color: var(--destructive);
+}
+.task-info {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+progress {
+  width: 100%;
+  height: 6px;
+  margin-top: 12px;
+  accent-color: var(--primary);
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #132c2566;
+  z-index: 3;
+}
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100% - 28px));
+  max-height: 92vh;
+  overflow-y: auto;
+  z-index: 4;
+  box-shadow: 0 16px 80px #182e252b;
+}
+.dialog .muted {
+  margin-top: 5px;
+}
+.dialog .notice,
+.dialog .hint {
+  margin-bottom: 15px;
+}
+.submit {
+  width: 100%;
+  margin-top: 18px;
+}
+@media (max-width: 710px) {
+  main {
+    padding: 22px 14px;
+  }
+  header {
+    padding: 0 16px;
+    height: 54px;
+  }
+  .panel {
+    padding: 16px;
+  }
+  .workspace {
+    gap: 12px;
+    grid-template-columns: minmax(175px, 0.8fr) minmax(0, 1.5fr);
+  }
+  .install-actions {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 560px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .sidebar,
+  .activity {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .empty {
+    padding: 14px;
+  }
+  .empty p {
+    max-width: none;
+  }
+  .device-icon {
+    display: none;
+  }
+  .heading {
+    align-items: flex-start;
+  }
+  .segments button {
+    padding-inline: 10px;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spin {
+    animation: spin 1.3s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+.install-actions button {
+  min-width: 0;
+  max-width: 100%;
+}
+.button-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pair-result {
+  margin-top: 16px;
+}
+.pair-result ul {
+  margin: 12px 0;
+  padding-left: 16px;
+  list-style: disc;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.pair-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #19241f;
+    --foreground: #e6eee8;
+    --primary: #9dd7b6;
+    --primary-foreground: #102c20;
+    --muted: #29382f;
+    --muted-foreground: #b3c3b9;
+    --accent: #30473a;
+    --border: #3a4c41;
+    --ring: #82c19d;
+    --destructive: #ffac9c;
+  }
+  body {
+    background: #101914;
+  }
+  header {
+    background: #152a21;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel,
+  .error.panel,
+  .segments button[aria-pressed="true"],
+  .url-pane input,
+  .dialog input {
+    background: var(--background);
+    border-color: var(--border);
+  }
+  .preview,
+  .notice,
+  .device-icon,
+  .segments,
+  .url-pane {
+    background: var(--muted);
+  }
+  h2 svg,
+  .device-icon,
+  .device > svg {
+    color: var(--primary);
+  }
+  .device[aria-pressed="true"],
+  .parcel {
+    background: #284736;
+    border-color: #558768;
+    color: var(--primary);
+  }
+  .dropzone {
+    background-color: #1a2b20;
+    background-image: radial-gradient(#6c917346 0.8px, transparent 0.9px);
+    border-color: #53755e;
+  }
+  .dropzone:hover:not(:disabled),
+  .dropzone.over {
+    background-color: #213c2b;
+  }
+  .error:not(.panel) {
+    background: #40271f;
+    color: var(--destructive);
+  }
+  .install-actions {
+    border-color: var(--border);
+  }
+}

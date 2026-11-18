@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>EasyAdb</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3537.50" />
+    <ProjectReference Include="../EasyAdb.Core/EasyAdb.Core.csproj" />
+    <Content Include="../../ui/dist/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="CheckUiAssets" BeforeTargets="PrepareForBuild" Condition="!Exists('../../ui/dist/index.html')"><Error Text="Build the React frontend in ui/ first." /></Target>
+</Project>

@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+out/
+.vs/
+.DS_Store
+*.user
+node_modules/
+ui/dist/
+releases/
