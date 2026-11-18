@@ -1,4 +1,4 @@
-[Setup]
+﻿[Setup]
 AppId={{39B22F81-AF84-4486-8406-4F8FFA6FA272}
 AppName=Easy ADB
 AppVersion=0.2.0
@@ -16,12 +16,12 @@ OutputDir=..\releases
 OutputBaseFilename=EasyADB-Setup-x64
 Compression=lzma2/fast
 SolidCompression=yes
+ArchiveExtraction=full
 
 [Files]
 Source: "..\out\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "Get-PlatformTools.ps1"; Flags: dontcopy
 Source: "generated\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
-Source: "{code:PlatformToolsSource}\platform-tools\*"; DestDir: "{app}\platform-tools"; Flags: external ignoreversion recursesubdirs createallsubdirs
+Source: "https://dl.google.com/android/repository/platform-tools_r36.0.2-win.zip"; DestDir: "{app}"; DestName: "platform-tools.zip"; ExternalSize: 7708640; Hash: b024d4f319d6ad3004de1ba7b96a5c7c5f3512e8b14126308d598b4ab93dcead; Flags: external download extractarchive ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\Easy ADB"; Filename: "{app}\EasyAdb.exe"
@@ -30,15 +30,6 @@ Name: "{userprograms}\Easy ADB"; Filename: "{app}\EasyAdb.exe"
 Filename: "{app}\EasyAdb.exe"; Description: "启动 Easy ADB"; Flags: nowait postinstall skipifsilent
 
 [Code]
-var
-  Staging: String;
-  Attempt: Integer;
-
-function PlatformToolsSource(Param: String): String;
-begin
-  Result := Staging;
-end;
-
 function RuntimePresent(): Boolean;
 var
   Version: String;
@@ -53,20 +44,8 @@ end;
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ExitCode: Integer;
-  Script: String;
 begin
   Result := '';
-  WizardForm.PreparingLabel.Caption := '正在准备 Android 设备连接工具，请保持联网…';
-  Attempt := Attempt + 1;
-  Staging := ExpandConstant('{tmp}\android-') + IntToStr(Attempt);
-  ExtractTemporaryFile('Get-PlatformTools.ps1');
-  Script := ExpandConstant('{tmp}\Get-PlatformTools.ps1');
-  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-      '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File "' + Script + '" -Destination "' + Staging + '"',
-      '', SW_HIDE, ewWaitUntilTerminated, ExitCode) or (ExitCode <> 0) or not FileExists(Staging + '\platform-tools\adb.exe') then begin
-    Result := '未能从 Google 下载并校验 Android 连接工具。请检查网络后重试。';
-    Exit;
-  end;
   if not RuntimePresent() then begin
     WizardForm.PreparingLabel.Caption := '正在准备 Microsoft WebView2 界面运行环境…';
     ExtractTemporaryFile('MicrosoftEdgeWebview2Setup.exe');
