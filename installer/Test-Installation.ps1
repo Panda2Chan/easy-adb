@@ -71,7 +71,7 @@ function Wait-Interface($Gui) {
             try {
                 $debugPort = [int]([IO.File]::ReadAllLines($portFile)[0])
                 $pages = Invoke-RestMethod "http://127.0.0.1:$debugPort/json/list" -NoProxy -TimeoutSec 3
-                $observed = ($pages | Select-Object type,url,title | ConvertTo-Json -Compress)
+                $observed = ($pages | Select-Object -Property @('type', 'url', 'title') | ConvertTo-Json -Compress)
                 foreach ($page in $pages) {
                     if ($page.type -eq 'page' -and $page.url -eq 'https://easy-adb.invalid/index.html' -and
                         $page.title -like 'Easy ADB*' -and $Gui.Responding) {
@@ -107,7 +107,7 @@ try {
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
     $listener.Start()
     try { $port = $listener.LocalEndpoint.Port } finally { $listener.Stop() }
-    $socket = "tcp:127.0.0.1:$port"
+    $socket = "tcp:$port"
     Write-Host "Private adb server: $socket"
     $server = Start-Child $adb @('-L', $socket, 'server', 'nodaemon') $app -Isolated
     # 确认监听者是刚启动的前台 adb，避免端口竞争导致误用其他服务。
