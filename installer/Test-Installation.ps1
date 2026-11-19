@@ -19,7 +19,7 @@ if (-not [IO.Path]::IsPathFullyQualified($Installer) -or
 $run = Join-Path ([IO.Path]::GetTempPath()) ('easy-adb-smoke-' + [guid]::NewGuid().ToString('N'))
 $app = Join-Path $run 'Easy ADB'
 $profileDir = Join-Path $run 'WebView2'
-$adb = Join-Path $app 'platform-tools\adb.exe'
+$bundledAdb = Join-Path $app 'platform-tools\adb.exe'
 $innoFlags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
 $registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{39B22F81-AF84-4486-8406-4F8FFA6FA272}_is1'
 $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Easy ADB.lnk'
@@ -74,24 +74,27 @@ try {
                 Where-Object Length -gt 0)) { throw "Missing frontend asset: $filter" }
     }
     if (-not (Test-Path -LiteralPath $registration)) { throw 'Missing Inno uninstall registration.' }
+    if (Test-Path -LiteralPath (Join-Path $app 'platform-tools.zip')) {
+        throw 'Installer left an external platform-tools archive in the installation.'
+    }
 
     $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
     $listener.Start()
     try { $port = $listener.LocalEndpoint.Port } finally { $listener.Stop() }
     $socket = "tcp:$port"
-    Write-Host "Private adb server: $socket"
-    $server = Start-Child $adb @('-L', $socket, 'server', 'nodaemon') $app -Isolated
+    Write-Host "Bundled adb server: $socket"
+    $server = Start-Child $bundledAdb @('-L', $socket, 'server', 'nodaemon') $app -Isolated
     # 确认监听者是刚启动的前台 adb，避免端口竞争导致误用其他服务。
     $deadline = [datetime]::UtcNow.AddSeconds(20)
     do {
-        if ($server.HasExited) { throw "Private adb server exited with code $($server.ExitCode)." }
+        if ($server.HasExited) { throw "Bundled adb server exited with code $($server.ExitCode)." }
         $bound = Get-NetTCPConnection -LocalPort $port -State Listen -OwningProcess $server.Id -ErrorAction SilentlyContinue
         if ($bound) { break }
         Start-Sleep -Milliseconds 200
     } while ([datetime]::UtcNow -lt $deadline)
-    if (-not $bound) { throw "Private adb PID $($server.Id) did not listen on $socket." }
+    if (-not $bound) { throw "Bundled adb PID $($server.Id) did not listen on $socket." }
 
-    $client = Start-Child $adb @('devices', '-l') $app -Isolated -Capture
+    $client = Start-Child $bundledAdb @('devices', '-l') $app -Isolated -Capture
     $stdout = $client.StandardOutput.ReadToEndAsync()
     $stderr = $client.StandardError.ReadToEndAsync()
     try { Wait-Child $client 20 'adb devices -l' } finally {
@@ -141,4 +144,4 @@ if ($errorsFound.Count) {
     }
     throw "Installation smoke failed. Logs: $run`n$($errorsFound -join "`n")"
 }
-Write-Host 'PASS: install, packaged files, isolated adb, GUI/WebView2 and uninstall.'
+Write-Host 'PASS: install, bundled adb, GUI/WebView2 and uninstall.'

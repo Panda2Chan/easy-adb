@@ -4,7 +4,7 @@
 
 ## 在 Windows 上启动
 
-下载并运行 **EasyADB-Setup-x64.exe**。接受 Android SDK 许可后，安装程序会从 Google 下载并校验 Android 连接工具，并在需要时从微软安装 WebView2。首次安装请保持联网。完成后从开始菜单打开 **Easy ADB**，连接设备即可安装 APK。
+下载并运行 **EasyADB-Setup-x64.exe**。安装包已经内置经过 SHA256 校验的 Google 官方 platform-tools r36.0.2，安装阶段不会访问 Google，也不会因为电脑已有 ADB 而重复下载。应用启动时会优先使用 `EASY_ADB_PATH`、`PATH`、Android SDK 环境变量和 Android Studio SDK 中已有的 `adb.exe`，最后才使用安装包内置版本。需要时安装程序会从微软安装 WebView2，因此首次安装请保持微软服务可访问。完成后从开始菜单打开 **Easy ADB**，连接设备即可安装 APK。
 
 安装包可在仓库 **Actions → Windows build → easy-adb-windows-installer** 获取。应用安装到当前用户目录，支持 Windows 10 2004 及以上 x64 系统。
 

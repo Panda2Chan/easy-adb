@@ -1,6 +1,32 @@
 $ErrorActionPreference = 'Stop'
 $deps = Join-Path $PSScriptRoot 'generated'
 New-Item -ItemType Directory -Path $deps -Force | Out-Null
+
+$platformToolsVersion = 'r36.0.2'
+$platformToolsUri = "https://dl.google.com/android/repository/platform-tools_$platformToolsVersion-win.zip"
+$platformToolsSha256 = 'b024d4f319d6ad3004de1ba7b96a5c7c5f3512e8b14126308d598b4ab93dcead'
+$platformTools = Join-Path $deps 'platform-tools'
+$platformToolsStage = Join-Path ([IO.Path]::GetTempPath()) ('easy-adb-platform-tools-' + [guid]::NewGuid().ToString('N'))
+$platformToolsZip = Join-Path $platformToolsStage "platform-tools_$platformToolsVersion-win.zip"
+New-Item -ItemType Directory -Path $platformToolsStage -Force | Out-Null
+try {
+    Invoke-WebRequest -Uri $platformToolsUri -OutFile $platformToolsZip
+    $actualPlatformToolsSha256 = (Get-FileHash -LiteralPath $platformToolsZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualPlatformToolsSha256 -ne $platformToolsSha256) {
+        throw "Invalid platform-tools SHA256. Expected $platformToolsSha256, got $actualPlatformToolsSha256."
+    }
+    Expand-Archive -LiteralPath $platformToolsZip -DestinationPath $platformToolsStage -Force
+    if (-not (Test-Path -LiteralPath (Join-Path $platformToolsStage 'platform-tools\adb.exe'))) {
+        throw 'Downloaded platform-tools archive does not contain platform-tools\adb.exe.'
+    }
+    New-Item -ItemType Directory -Path $platformTools -Force | Out-Null
+    Copy-Item -Path (Join-Path $platformToolsStage 'platform-tools\*') -Destination $platformTools -Recurse -Force
+} finally {
+    if (Test-Path -LiteralPath $platformToolsStage) {
+        Remove-Item -LiteralPath $platformToolsStage -Recurse -Force
+    }
+}
+
 $bootstrap = Join-Path $deps 'MicrosoftEdgeWebview2Setup.exe'
 Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $bootstrap
 $signature = Get-AuthenticodeSignature $bootstrap

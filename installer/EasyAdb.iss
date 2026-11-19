@@ -21,7 +21,7 @@ ArchiveExtraction=full
 [Files]
 Source: "..\out\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "generated\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
-Source: "https://dl.google.com/android/repository/platform-tools_r36.0.2-win.zip"; DestDir: "{app}"; DestName: "platform-tools.zip"; ExternalSize: 7708640; Hash: b024d4f319d6ad3004de1ba7b96a5c7c5f3512e8b14126308d598b4ab93dcead; Flags: external download extractarchive ignoreversion recursesubdirs createallsubdirs
+Source: "generated\platform-tools\*"; DestDir: "{app}\platform-tools"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\Easy ADB"; Filename: "{app}\EasyAdb.exe"

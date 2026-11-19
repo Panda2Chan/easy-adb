@@ -68,16 +68,90 @@ public partial class MainWindow : Window
 
     private static AdbClient Client()
     {
-        var local = Path.Combine(AppContext.BaseDirectory, "platform-tools", "adb.exe");
-        if (File.Exists(local)) return new AdbClient(local);
-        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
-        {
-            var path = dir.Trim().Trim('"');
-            if (!Path.IsPathFullyQualified(path)) continue;
-            var candidate = Path.Combine(path, "adb.exe");
-            if (File.Exists(candidate)) return new AdbClient(candidate);
-        }
+        var adbPath = ResolveAdbPath(
+            Environment.GetEnvironmentVariable("EASY_ADB_PATH"),
+            Environment.GetEnvironmentVariable("PATH"),
+            Environment.GetEnvironmentVariable("ANDROID_HOME"),
+            Environment.GetEnvironmentVariable("ANDROID_SDK_ROOT"),
+            CommonAndroidSdkRoots(),
+            AppContext.BaseDirectory);
+        if (adbPath is not null) return new AdbClient(adbPath);
         throw new FileNotFoundException("缺少 ADB 连接组件。请重新运行 Easy ADB 安装程序修复。");
+    }
+
+    internal static string? ResolveAdbPath(
+        string? easyAdbPath,
+        string? pathVariable,
+        string? androidHome,
+        string? androidSdkRoot,
+        IEnumerable<string> commonSdkRoots,
+        string appBaseDirectory)
+    {
+        var direct = ExistingFullPath(easyAdbPath);
+        if (direct is not null) return direct;
+
+        foreach (var entry in (pathVariable ?? string.Empty).Split(Path.PathSeparator))
+        {
+            var directory = entry.Trim().Trim('"');
+            if (!Path.IsPathFullyQualified(directory)) continue;
+
+            var fromPath = ExistingFullPath(Path.Combine(directory, "adb.exe"));
+            if (fromPath is not null) return fromPath;
+        }
+
+        foreach (var sdkRoot in new[] { androidHome, androidSdkRoot }.Where(root => !string.IsNullOrWhiteSpace(root)))
+        {
+            var fromEnvironment = ExistingFullPath(Path.Combine(sdkRoot!, "platform-tools", "adb.exe"));
+            if (fromEnvironment is not null) return fromEnvironment;
+        }
+
+        foreach (var sdkRoot in commonSdkRoots.Where(root => !string.IsNullOrWhiteSpace(root)))
+        {
+            var fromAndroidStudio = ExistingFullPath(Path.Combine(sdkRoot, "platform-tools", "adb.exe"));
+            if (fromAndroidStudio is not null) return fromAndroidStudio;
+        }
+
+        return ExistingFullPath(Path.Combine(appBaseDirectory, "platform-tools", "adb.exe"));
+    }
+
+    private static IEnumerable<string> CommonAndroidSdkRoots()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var commonAppData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+
+        return new[]
+        {
+            SdkRoot(localAppData, "Android", "Sdk"),
+            SdkRoot(userProfile, "Android", "Sdk"),
+            SdkRoot(userProfile, "AppData", "Local", "Android", "Sdk"),
+            SdkRoot(commonAppData, "Android", "Sdk"),
+            SdkRoot(programFiles, "Android", "Android Studio", "sdk")
+        }.OfType<string>();
+
+        static string? SdkRoot(string basePath, params string[] parts) =>
+            string.IsNullOrWhiteSpace(basePath) ? null : Path.Combine(new[] { basePath }.Concat(parts).ToArray());
+    }
+
+    private static string? ExistingFullPath(string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate)) return null;
+
+        var value = candidate.Trim().Trim('"');
+        try
+        {
+            var fullPath = Path.GetFullPath(value);
+            return File.Exists(fullPath) ? fullPath : null;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private void Send(object message)
