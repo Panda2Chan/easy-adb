@@ -83,13 +83,10 @@ h2,
   gap: 11px;
 }
 .logo {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 34px;
   height: 34px;
-  background: #caeac7;
-  color: #174832;
-  border-radius: 9px;
+  flex-shrink: 0;
 }
 .host {
   color: #ddede5;

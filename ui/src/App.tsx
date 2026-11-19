@@ -10,7 +10,6 @@ import {
   LockKeyhole,
   PackageOpen,
   Upload,
-  Usb,
 } from "lucide-react";
 import { Bridge, errorText, type Source } from "./lib/bridge";
 import { online, stateText, useDevices } from "./lib/devices";
@@ -205,9 +204,7 @@ export function App({ bridge }: { bridge: Bridge }) {
     <div className="shell" onDragOver={(e) => e.preventDefault()} onDrop={drop}>
       <header>
         <div className="brand">
-          <span className="logo">
-            <Usb size={24} />
-          </span>
+          <img className="logo" src="/easy-adb-mark.svg" alt="" aria-hidden="true" />
           Easy ADB
         </div>
         <span className="host">
