@@ -1,12 +1,14 @@
 # Easy ADB
 
+官网：[easyadb.panchan.top](https://easyadb.panchan.top/) · 源码：[GitHub](https://github.com/Panda2Chan/easy-adb) · 下载：[Releases](https://github.com/Panda2Chan/easy-adb/releases)
+
 用 Windows 电脑给安卓手机、电视或盒子安装应用。选择一台设备后，拖入一个本地 APK，或粘贴 APK 下载直链。安装任务始终使用点击安装时的目标设备。
 
 ## 在 Windows 上启动
 
 下载并运行 **EasyADB-Setup-x64.exe**。安装包已经内置经过 SHA256 校验的 Google 官方 platform-tools r36.0.2，安装阶段不会访问 Google，也不会因为电脑已有 ADB 而重复下载。应用启动时会优先使用 `EASY_ADB_PATH`、`PATH`、Android SDK 环境变量和 Android Studio SDK 中已有的 `adb.exe`，最后才使用安装包内置版本。需要时安装程序会从微软安装 WebView2，因此首次安装请保持微软服务可访问。完成后从开始菜单打开 **Easy ADB**，连接设备即可安装 APK。
 
-安装包可在仓库 **Actions → Windows build → easy-adb-windows-installer** 获取。应用安装到当前用户目录，支持 Windows 10 2004 及以上 x64 系统。
+安装包可从官网或仓库 Releases 获取。应用安装到当前用户目录，支持 Windows 10 2004 及以上 x64 系统。Windows 安装包内置 Platform-Tools，不会因为电脑已有 ADB 而重复下载。
 
 ## 连接与安装
 
