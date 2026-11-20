@@ -42,6 +42,16 @@ public class AdbTests(FakeAdb fake) : IClassFixture<FakeAdb>
         await Client.ConnectAsync(Endpoint, default);
     }
 
+    [Theory]
+    [InlineData("127.0.0.1", "127.0.0.1:5555")]
+    [InlineData("::1", "[::1]:5555")]
+    [InlineData("[::1]:4321", "[::1]:4321")]
+    public async Task ConnectDefaultsOnlyMissingPort(string input, string endpoint)
+    {
+        fake.Reply(["connect", endpoint], "connected to " + endpoint);
+        await Client.ConnectAsync(input, default);
+    }
+
     [Fact]
     public async Task ConnectRejectsZeroExitWithFailureText()
     {
@@ -159,10 +169,13 @@ public sealed class FakeAdb : IDisposable
             using System.Linq;
             using System.Threading;
             Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+            var step = File.Exists("step") ? int.Parse(File.ReadAllText("step")) : 0;
+            File.WriteAllText("step", (step + 1).ToString());
+            File.WriteAllText("pid.tmp", Environment.ProcessId.ToString());
+            File.Move("pid.tmp", "pid", true);
+            if (step > 0) Directory.SetCurrentDirectory("step" + step);
             if (!args.SequenceEqual(File.ReadAllLines("argv"))) return 71;
             if (File.Exists("stdin") && (Console.ReadLine() != File.ReadAllText("stdin") || Console.ReadLine() != null)) return 72;
-            File.WriteAllText("pid.tmp", Environment.ProcessId.ToString());
-            File.Move("pid.tmp", "pid");
             if (File.Exists("hang")) Thread.Sleep(TimeSpan.FromSeconds(40));
             Console.Write(File.ReadAllText("stdout"));
             Console.Error.Write(File.ReadAllText("stderr"));
@@ -178,13 +191,24 @@ public sealed class FakeAdb : IDisposable
     public void Reply(string[] args, string output, string error = "", int exit = 0, string? input = null, bool hang = false)
     {
         File.Delete(PidFile);
-        File.WriteAllLines(Path.Combine(Output, "argv"), args);
-        File.WriteAllText(Path.Combine(Output, "stdout"), output);
-        File.WriteAllText(Path.Combine(Output, "stderr"), error);
-        File.WriteAllText(Path.Combine(Output, "exit"), exit.ToString());
-        var stdin = Path.Combine(Output, "stdin");
+        File.Delete(Path.Combine(Output, "step"));
+        WriteReply(Output, args, output, error, exit, input, hang);
+    }
+
+    public void Then(int step, string[] args, string output, string error = "", int exit = 0) =>
+        WriteReply(Directory.CreateDirectory(Path.Combine(Output, "step" + step)).FullName, args, output, error, exit, null, false);
+
+    public int Calls => File.Exists(Path.Combine(Output, "step")) ? int.Parse(File.ReadAllText(Path.Combine(Output, "step"))) : 0;
+
+    private static void WriteReply(string directory, string[] args, string output, string error, int exit, string? input, bool hang)
+    {
+        File.WriteAllLines(Path.Combine(directory, "argv"), args);
+        File.WriteAllText(Path.Combine(directory, "stdout"), output);
+        File.WriteAllText(Path.Combine(directory, "stderr"), error);
+        File.WriteAllText(Path.Combine(directory, "exit"), exit.ToString());
+        var stdin = Path.Combine(directory, "stdin");
         if (input is null) File.Delete(stdin); else File.WriteAllText(stdin, input);
-        var delay = Path.Combine(Output, "hang");
+        var delay = Path.Combine(directory, "hang");
         if (hang) File.WriteAllText(delay, ""); else File.Delete(delay);
     }
 

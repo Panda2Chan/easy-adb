@@ -7,7 +7,13 @@ export type Source =
   | { file: string; url?: never }
   | { url: string; file?: never };
 type Empty = Record<string, never>;
+export type InstalledApp = { packageName: string; isSystem: boolean };
 type Payloads = {
+  listApps: { serial: string };
+  appInfo: { serial: string; packageName: string };
+  uninstallApp: { serial: string; packageName: string };
+  version: Empty;
+  openRepository: Empty;
   list: Empty;
   pick: Empty;
   cancel: Empty;
@@ -16,6 +22,11 @@ type Payloads = {
   install: { serial: string } & Source;
 };
 type Results = {
+  listApps: InstalledApp[];
+  appInfo: { versionName: string | null; sizeBytes: number | null };
+  uninstallApp: unknown;
+  version: string;
+  openRepository: unknown;
   list: Device[];
   pick: string | null;
   cancel: unknown;
@@ -24,9 +35,14 @@ type Results = {
   install: unknown;
 };
 export type HostEvent =
+  | {
+      event: "downloadBytes";
+      value: { received: number; total: number | null };
+    }
   | { event: "progress"; value: number }
   | { event: "file" | "stage"; value: string };
 export interface HostPort {
+  readonly appVersion?: string;
   postMessage(message: {
     id: string | number;
     action: keyof Payloads;
@@ -59,6 +75,9 @@ export class Bridge {
     this.available = Boolean(port);
     port?.addEventListener("message", this.receive);
   }
+  get appVersion() {
+    return this.port?.appVersion;
+  }
   private receive = (message: Event) => {
     const { data } = message as MessageEvent;
     if (!data || typeof data !== "object") return;
@@ -77,6 +96,8 @@ export class Bridge {
       return;
     }
     if (
+      (data.event === "downloadBytes" &&
+        Number.isFinite(data.value?.received)) ||
       (data.event === "progress" && Number.isFinite(data.value)) ||
       (["stage", "file"].includes(data.event) && typeof data.value === "string")
     ) {

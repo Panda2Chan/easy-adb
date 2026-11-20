@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Wifi, X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -12,9 +12,11 @@ export function Wireless({
   refresh,
   devices,
   reliable,
+  onConnected,
 }: {
   devices: Device[];
   reliable: boolean;
+  onConnected: (serial: string, name: string) => void;
   bridge: Bridge;
   disabled: boolean;
   refresh: () => void;
@@ -35,11 +37,33 @@ export function Wireless({
         d.serial.slice(0, d.serial.lastIndexOf(":")).toLowerCase() ===
           pairedHost,
     );
+  const [awaiting, setAwaiting] = useState("");
+  const [customPort, setCustomPort] = useState("");
+  const [showPort, setShowPort] = useState(false);
+  useEffect(() => {
+    if (!open || !reliable) return;
+    const match = awaiting
+      ? devices.find(
+          (d) => online(d) && d.serial.toLowerCase() === awaiting.toLowerCase(),
+        )
+      : pairedHost
+        ? connected
+        : undefined;
+    if (match) {
+      onConnected(match.serial, match.name || match.serial);
+      setOpen(false);
+      setAwaiting("");
+      setPairedHost("");
+    }
+  }, [devices, awaiting, pairedHost, connected, open, reliable, onConnected]);
   const pair = mode === "pair";
   function switchMode(value: typeof mode) {
     setPairedHost("");
     setMode(value);
     setEndpoint("");
+    setAwaiting("");
+    setCustomPort("");
+    setShowPort(false);
     setCode("");
     setError("");
     setMessage("");
@@ -47,7 +71,9 @@ export function Wireless({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy) return;
-    const address = endpoint.trim();
+    const host = endpoint.trim();
+    const address =
+      pair || /:\d+$/.test(host) ? host : `${host}:${customPort || "5555"}`;
     const port = /^(?:\[[\da-fA-F:.]+\]|[\w.-]+):(\d{1,5})$/.exec(address)?.[1];
     if (!port || +port < 1 || +port > 65535)
       return setError("请输入完整的设备地址和端口。");
@@ -64,7 +90,8 @@ export function Wireless({
         refresh();
       } else {
         await bridge.request("connect", { endpoint: address });
-        setMessage("连接请求已完成。请在设备列表中选择安装目标。");
+        setAwaiting(address);
+        setMessage("设备已接受连接，正在确认在线状态。请在设备上允许调试。");
         refresh();
       }
     } catch (err) {
@@ -84,14 +111,19 @@ export function Wireless({
       }}
     >
       <Dialog.Trigger asChild>
-        <Button variant="outline" disabled={disabled}>
+        <Button
+          className="railbtn"
+          variant="ghost"
+          disabled={disabled}
+          aria-label="无线连接"
+        >
           <Wifi />
-          无线连接
+          Wi-Fi 连接
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="overlay" />
-        <Dialog.Content className="dialog panel">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/35" />
+        <Dialog.Content className="dialog fixed top-1/2 left-1/2 z-50 grid w-[min(420px,94vw)] max-h-[94vh] overflow-auto -translate-x-1/2 -translate-y-1/2 gap-3 rounded-xl border bg-white p-6 shadow-lg">
           <div className="section-head">
             <Dialog.Title>无线连接</Dialog.Title>
             <Dialog.Close asChild>
@@ -174,7 +206,7 @@ export function Wireless({
                 autoComplete="off"
                 spellCheck={false}
                 placeholder={
-                  pair ? "例如 192.168.1.20:41234" : "设备 IP:连接端口"
+                  pair ? "例如 192.168.1.20:41234" : "例如 192.168.1.20"
                 }
                 value={endpoint}
                 disabled={busy}
@@ -183,8 +215,35 @@ export function Wireless({
               <p className="hint">
                 {pair
                   ? "打开“使用配对码配对设备”，填写弹窗中的地址和端口。"
-                  : "使用设备显示的连接端口。已配对的设备也需要单独连接。"}
+                  : "输入电视或盒子的 IP 即可，默认使用 5555 端口。"}
               </p>
+              {!pair && (
+                <>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => {
+                      setShowPort(!showPort);
+                      setCustomPort("");
+                    }}
+                  >
+                    {showPort ? "使用默认端口" : "自定义连接端口"}
+                  </Button>
+                  {showPort && (
+                    <label>
+                      连接端口
+                      <Input
+                        value={customPort}
+                        inputMode="numeric"
+                        placeholder="5555"
+                        onChange={(e) => setCustomPort(e.target.value)}
+                      />
+                    </label>
+                  )}
+                </>
+              )}
               {pair && (
                 <>
                   <label htmlFor="code">六位配对码</label>

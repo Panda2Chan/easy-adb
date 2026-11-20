@@ -54,15 +54,31 @@ public sealed class DownloadTests : IDisposable
         Assert.Equal(2, handler.Calls);
     }
 
-    [Fact]
-    public async Task AcceptsResponseWithoutContentLength()
+    private sealed class ByteProgress : IProgress<DownloadBytes>
+    {
+        public List<DownloadBytes> Values { get; } = [];
+        public void Report(DownloadBytes value) => Values.Add(value);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReportsReceivedBytesAndNullableTotal(bool known)
     {
         var bytes = Apk();
         using var client = new HttpClient(new Handler(() => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StreamContent(new NonSeekableStream(bytes))
+            Content = known ? new ByteArrayContent(bytes) : new StreamContent(new NonSeekableStream(bytes))
         }));
-        var path = await new ApkDownloader(client, directory).DownloadAsync(Url, Progress, default);
+        var counts = new ByteProgress();
+        var downloader = new ApkDownloader(client, directory);
+        var path = await downloader.DownloadAsync(Url, Progress, default, counts);
+        long? total = known ? bytes.Length : null;
+        Assert.Equal(new DownloadBytes(0, total), counts.Values.First());
+        Assert.Equal(new DownloadBytes(bytes.Length, total), counts.Values.Last());
+        counts.Values.Clear();
+        await downloader.DownloadAsync(Url, Progress, default, counts);
+        Assert.Equal(new DownloadBytes(bytes.Length, bytes.Length), Assert.Single(counts.Values));
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.Equal(100, updates.Last());
     }

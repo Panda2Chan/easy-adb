@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using System.Windows;
 using EasyAdb.Core;
@@ -49,10 +51,16 @@ public partial class MainWindow : Window
             {
                 web.NavigationCompleted += (_, e) => Console.WriteLine($"Navigation: {e.IsSuccess} {e.WebErrorStatus}");
                 await web.AddScriptToExecuteOnDocumentCreatedAsync("""
-                    window.chrome.webview.addEventListener('message', ({data}) => {
-                        if (Array.isArray(data.result) && document.querySelector('#root h1'))
-                            window.chrome.webview.postMessage({action:'windowReady'});
+                    const host = window.chrome.webview;
+                    let hasList = false, hasVersion = false, connectRejected = false;
+                    host.addEventListener('message', ({data}) => {
+                        if (Array.isArray(data.result) && document.querySelector('#root h1')) hasList = true;
+                        if (data.id === 'smoke-version') hasVersion = typeof data.result === 'string' && /^\d+\.\d+\.\d+/.test(data.result);
+                        if (data.id === 'smoke-connect') connectRejected = typeof data.error === 'string' && data.error.includes('127.0.0.1');
+                        if (hasList && hasVersion && connectRejected) host.postMessage({action:'windowReady'});
                     });
+                    host.postMessage({id:'smoke-version', action:'version'});
+                    host.postMessage({id:'smoke-connect', action:'connect', payload:{endpoint:'127.0.0.1:1'}});
                     """);
             }
             web.Navigate(StartPage);
@@ -189,6 +197,13 @@ public partial class MainWindow : Window
             object? result = null;
             switch (action)
             {
+                case "version": result = typeof(MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion; break;
+                case "openRepository":
+                    Process.Start(new ProcessStartInfo("https://github.com/Panda2Chan/easy-adb") { UseShellExecute = true })?.Dispose();
+                    break;
+                case "listApps": result = await Client().ListAppsAsync(Text("serial"), lifetime.Token); break;
+                case "appInfo": result = await Client().AppInfoAsync(Text("serial"), Text("packageName"), lifetime.Token); break;
+                case "uninstallApp": await Client().UninstallAppAsync(Text("serial"), Text("packageName"), lifetime.Token); break;
                 case "list": result = await Client().ListAsync(lifetime.Token); break;
                 case "connect": await Client().ConnectAsync(Text("endpoint"), lifetime.Token); break;
                 case "pair": await Client().PairAsync(Text("endpoint"), Text("code"), lifetime.Token); break;
@@ -234,7 +249,8 @@ public partial class MainWindow : Window
                 deadline.CancelAfter(TimeSpan.FromMinutes(15));
                 try
                 {
-                    file = await downloader.DownloadAsync(url, new Progress<int>(p => Send(new { @event = "progress", value = p })), deadline.Token);
+                    file = await downloader.DownloadAsync(url, new Progress<int>(p => Send(new { @event = "progress", value = p })), deadline.Token,
+                        new Progress<DownloadBytes>(bytes => Send(new { @event = "downloadBytes", value = bytes })));
                 }
                 catch (OperationCanceledException) when (!operation.IsCancellationRequested)
                 {

@@ -1,13 +1,14 @@
 ﻿[Setup]
 AppId={{39B22F81-AF84-4486-8406-4F8FFA6FA272}
 AppName=Easy ADB
-AppVersion=0.2.0
+AppVersion={#GetStringFileInfo(AddBackslash(SourcePath) + "..\out\EasyAdb.dll", "ProductVersion")}
 AppPublisher=Panda2Chan
 DefaultDirName={localappdata}\Programs\Easy ADB
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
+SetupIconFile=..\src\EasyAdb.Windows\Assets\EasyAdb.ico
 UninstallDisplayIcon={app}\EasyAdb.exe
 DisableProgramGroupPage=yes
 WizardStyle=modern
@@ -18,6 +19,12 @@ Compression=lzma2/fast
 SolidCompression=yes
 ArchiveExtraction=full
 
+[Languages]
+Name: "zhcn"; MessagesFile: "ChineseSimplified.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+
 [Files]
 Source: "..\out\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "generated\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
@@ -25,6 +32,7 @@ Source: "generated\platform-tools\*"; DestDir: "{app}\platform-tools"; Flags: ig
 
 [Icons]
 Name: "{userprograms}\Easy ADB"; Filename: "{app}\EasyAdb.exe"
+Name: "{userdesktop}\Easy ADB"; Filename: "{app}\EasyAdb.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\EasyAdb.exe"; Description: "启动 Easy ADB"; Flags: nowait postinstall skipifsilent

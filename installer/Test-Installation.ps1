@@ -6,7 +6,7 @@ Smoke-test the actual setup on a clean Windows runner with a desktop session.
 pwsh -NoProfile -File .\installer\Test-Installation.ps1 -Installer 'C:\artifacts\EasyADB-Setup-x64.exe'
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Installer)
+param([Parameter(Mandatory)][string]$Installer, [switch]$SkipDesktopShortcut)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -23,7 +23,8 @@ $bundledAdb = Join-Path $app 'platform-tools\adb.exe'
 $innoFlags = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
 $registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{39B22F81-AF84-4486-8406-4F8FFA6FA272}_is1'
 $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Easy ADB.lnk'
-if ((Test-Path -LiteralPath $registration) -or (Test-Path -LiteralPath $shortcut)) {
+$desktopShortcut = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'Easy ADB.lnk'
+if ((Test-Path -LiteralPath $registration) -or (Test-Path -LiteralPath $shortcut) -or (Test-Path -LiteralPath $desktopShortcut)) {
     throw 'An Easy ADB installation already exists for this user. Use a clean runner.'
 }
 [void][IO.Directory]::CreateDirectory($run)
@@ -60,8 +61,25 @@ function Wait-Child($Process, [int]$Seconds, [string]$Stage) {
 $gui = $server = $null
 $errorsFound = [Collections.Generic.List[string]]::new()
 try {
-    $setup = Start-Child $Installer ($innoFlags + "/DIR=$app" + "/LOG=$run\install.log") $run
+    $setupArgs = $innoFlags + "/DIR=$app" + "/LOG=$run\install.log"
+    if ($SkipDesktopShortcut) { $setupArgs += '/MERGETASKS=!desktopicon' }
+    $setup = Start-Child $Installer $setupArgs $run
     Wait-Child $setup 420 'Setup'
+    if ((Test-Path -LiteralPath $desktopShortcut) -ne (!$SkipDesktopShortcut)) { throw 'Unexpected desktop shortcut selection.' }
+    if (!(Test-Path -LiteralPath $shortcut)) { throw 'Missing Start Menu shortcut.' }
+    $language = Get-ItemPropertyValue -LiteralPath $registration -Name 'Inno Setup: Language'
+    if ($language -ne 'zhcn') { throw "Unexpected installer language: $language" }
+    Add-Type -AssemblyName System.Drawing
+    foreach ($binary in $Installer, (Join-Path $app 'EasyAdb.exe'), (Join-Path $app 'unins000.exe')) {
+        $icon = [Drawing.Icon]::ExtractAssociatedIcon($binary)
+        try {
+            $bitmap = $icon.ToBitmap()
+            try {
+                $color = $bitmap.GetPixel([int]($bitmap.Width / 2), [int]($bitmap.Height / 4))
+                if ($color.R -ne 18 -or $color.G -ne 60 -or $color.B -ne 42) { throw "Missing brand icon on $binary" }
+            } finally { $bitmap.Dispose() }
+        } finally { $icon.Dispose() }
+    }
     foreach ($relative in 'EasyAdb.exe','wwwroot\index.html','platform-tools\adb.exe',
             'platform-tools\AdbWinApi.dll','platform-tools\AdbWinUsbApi.dll') {
         $file = Join-Path $app $relative
@@ -129,7 +147,7 @@ try {
         # Inno 的临时卸载进程可能晚于启动进程退出。
         $deadline = [datetime]::UtcNow.AddSeconds(20)
         do {
-            $left = @($app, $registration, $shortcut | Where-Object { Test-Path -LiteralPath $_ })
+            $left = @($app, $registration, $shortcut, $desktopShortcut | Where-Object { Test-Path -LiteralPath $_ })
             if (-not $left.Count) { break }
             Start-Sleep -Milliseconds 250
         } while ([datetime]::UtcNow -lt $deadline)

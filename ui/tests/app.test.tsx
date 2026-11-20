@@ -102,6 +102,33 @@ describe("桌面工作台", () => {
     });
     await screen.findByText("操作已取消");
   });
+  it("仅填 IP 即可连接，确认上线后自动关闭并锁定目标", async () => {
+    const { devices, postMessage } = setup();
+    await screen.findByRole("button", { name: /测试设备 A/ });
+    fireEvent.click(screen.getByRole("button", { name: "无线连接" }));
+    fireEvent.change(screen.getByLabelText("连接地址"), {
+      target: { value: "192.168.1.51" },
+    });
+    devices.push({
+      serial: "192.168.1.51:5555",
+      name: "客厅电视",
+      state: "device",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "连接设备" }));
+    expect(await screen.findByText(/已连接到 客厅电视/)).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: /客厅电视.*192/ })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(postMessage.mock.calls.map(([m]) => m)).toContainEqual(
+      expect.objectContaining({
+        action: "connect",
+        payload: { endpoint: "192.168.1.51:5555" },
+      }),
+    );
+  });
   it("配对后清空配对地址，明确要求输入连接端口", async () => {
     const { postMessage } = setup();
     fireEvent.click(screen.getByRole("button", { name: "无线连接" }));
@@ -125,7 +152,9 @@ describe("桌面工作台", () => {
   it("链接只传 url，轮询保留安装错误与锁定目标", async () => {
     const { send, postMessage } = setup();
     fireEvent.click(await screen.findByRole("button", { name: /测试设备 A/ }));
-    fireEvent.click(screen.getByRole("button", { name: "下载链接" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "链接安装" }), {
+      button: 0,
+    });
     const submit = screen.getByRole("button", {
       name: "安装到 测试设备 A",
     }) as HTMLButtonElement;
@@ -175,7 +204,7 @@ describe("桌面工作台", () => {
       state: "device",
     });
     fireEvent.click(screen.getByRole("button", { name: "配对设备" }));
-    expect(await screen.findByText(/电视 已上线/)).toBeTruthy();
+    expect(await screen.findByText(/已连接到 电视/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "手动连接" })).toBeNull();
     expect(postMessage.mock.calls.some(([m]) => m.action === "connect")).toBe(
       false,

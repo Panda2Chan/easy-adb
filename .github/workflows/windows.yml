@@ -41,9 +41,12 @@ jobs:
             $file = Join-Path 'installer/generated/platform-tools' $relative
             if (!(Test-Path -LiteralPath $file)) { throw "Missing bundled platform-tools file: $file" }
           }
-      - name: Verify installation and launch
+      - name: Verify Chinese installation, default desktop shortcut and launch
         shell: pwsh
         run: ./installer/Test-Installation.ps1 -Installer (Resolve-Path releases/EasyADB-Setup-x64.exe)
+      - name: Verify installation with desktop shortcut disabled
+        shell: pwsh
+        run: ./installer/Test-Installation.ps1 -Installer (Resolve-Path releases/EasyADB-Setup-x64.exe) -SkipDesktopShortcut
       - uses: actions/upload-artifact@v4
         with:
           name: easy-adb-windows-installer

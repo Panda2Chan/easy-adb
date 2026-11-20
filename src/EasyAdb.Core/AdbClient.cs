@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Text;
+using System.Net;
 
 namespace EasyAdb.Core;
 
 public record Device(string Serial, string Name, string State);
 
-public class AdbClient(string executable)
+public partial class AdbClient(string executable)
 {
     public async Task<IReadOnlyList<Device>> ListAsync(CancellationToken ct)
     {
@@ -30,6 +31,9 @@ public class AdbClient(string executable)
     public async Task ConnectAsync(string endpoint, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
+        endpoint = endpoint.Trim();
+        if (!endpoint.Contains("]:", StringComparison.Ordinal) && IPAddress.TryParse(endpoint, out var address))
+            endpoint = address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6 ? $"[{address}]:5555" : $"{address}:5555";
         var reply = await RunAsync(["connect", endpoint], TimeSpan.FromSeconds(30), ct).ConfigureAwait(false);
         var result = reply.LastLine;
         if (!HasTarget(result, "connected to ") && !HasTarget(result, "already connected to "))
@@ -83,7 +87,7 @@ public class AdbClient(string executable)
         }
     }
 
-    private async Task<Reply> RunAsync(string[] args, TimeSpan timeout, CancellationToken ct, string? code = null)
+    private async Task<Reply> RunAsync(string[] args, TimeSpan timeout, CancellationToken ct, string? code = null, bool allowShellFailure = false)
     {
         ct.ThrowIfCancellationRequested();
         var start = new ProcessStartInfo(executable)
@@ -120,7 +124,7 @@ public class AdbClient(string executable)
                 error = error.Replace(code, "******", StringComparison.Ordinal);
             }
             var reply = new Reply(output, error, process.ExitCode);
-            if (reply.ExitCode != 0) throw reply.Failure();
+            if (reply.ExitCode != 0 && (!allowShellFailure || Lines(error).Any(line => line.StartsWith("adb:", StringComparison.OrdinalIgnoreCase)))) throw reply.Failure();
             return reply;
         }
         catch (OperationCanceledException) when (deadline.IsCancellationRequested)
