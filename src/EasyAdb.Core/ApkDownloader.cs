@@ -66,9 +66,9 @@ public sealed class ApkDownloader(HttpClient client, string directory)
                     length = await CopyAsync(source, file, expected, progress, bytes, ct).ConfigureAwait(false);
                     file.Position = 0;
                     using var zip = new ZipArchive(file, ZipArchiveMode.Read, leaveOpen: true);
-                    var manifest = zip.GetEntry("AndroidManifest.xml")
-                        ?? throw new InvalidDataException("APK 根目录缺少 AndroidManifest.xml。");
-                    using var manifestStream = manifest.Open();
+                    if (!(zip.GetEntry("AndroidManifest.xml") is not null || zip.GetEntry("toc.pb") is not null ||
+                          zip.GetEntry("manifest.json") is not null || zip.Entries.Any(entry => entry.FullName.EndsWith(".apk", StringComparison.OrdinalIgnoreCase))))
+                        throw new InvalidDataException("无法识别 Android 安装包。");
                 }
 
                 // 校验和关闭文件后才发布最终文件名并报告完成。

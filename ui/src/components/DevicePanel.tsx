@@ -6,7 +6,8 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "./ui/dialog";
-import logo from "../../public/easy-adb-mark.svg?inline";
+import { UpdateCheck } from "./UpdateCheck";
+import logo from "../../public/easy-adb-icon.png?inline";
 import { Cable, LockKeyhole, RefreshCw, Smartphone } from "lucide-react";
 import { type Device, type Bridge, errorText } from "@/lib/bridge";
 import { online, stateText } from "@/lib/devices";
@@ -58,7 +59,18 @@ export function DevicePanel({
         Easy ADB
       </div>
       <div className="railbody">
-        <div className="railtitle">我的设备</div>
+        <div className="rail-heading">
+          <h2 className="railtitle">我的设备</h2>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={!available || scanning}
+            onClick={refresh}
+            aria-label="刷新 USB 和无线设备"
+          >
+            <RefreshCw className={scanning ? "spin" : ""} />
+          </Button>
+        </div>
         {scanError && (
           <p role="alert" className="error">
             设备扫描失败：{scanError}
@@ -87,23 +99,11 @@ export function DevicePanel({
           </div>
         ) : (
           <div className="empty">
-            <span className="device-icon">
-              <Cable size={29} />
-            </span>
             <strong>暂无设备</strong>
             <p>使用数据线连接设备，或通过无线连接添加。</p>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={!available || scanning}
-          onClick={refresh}
-          aria-label="刷新 USB 和无线设备"
-        >
-          <RefreshCw className={scanning ? "spin" : ""} />
-          刷新列表
-        </Button>
+
         <p className="railtitle connections">连接设备</p>
         <Dialog>
           <DialogTrigger asChild>
@@ -146,6 +146,7 @@ export function DevicePanel({
       <footer className="about">
         {appVersion && <span>v{appVersion}</span>}
         <a
+          className="footer-action"
           href="https://github.com/Panda2Chan/easy-adb"
           target="_blank"
           rel="noreferrer"
@@ -170,6 +171,7 @@ export function DevicePanel({
           easy-adb
         </a>
         <small>Powered by PanChan</small>
+        <UpdateCheck bridge={bridge} current={appVersion} />
         {linkError && <small role="alert">{linkError}</small>}
       </footer>
     </aside>

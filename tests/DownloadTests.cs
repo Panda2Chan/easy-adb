@@ -54,6 +54,18 @@ public sealed class DownloadTests : IDisposable
         Assert.Equal(2, handler.Calls);
     }
 
+    [Theory]
+    [InlineData("toc.pb")]
+    [InlineData("manifest.json")]
+    [InlineData("base.apk")]
+    public async Task DownloadPreservesSplitArchiveForPreflight(string entry)
+    {
+        var body = Apk(entry);
+        using var client = new HttpClient(new Handler(() => Ok(body)));
+        var path = await new ApkDownloader(client, directory).DownloadAsync("https://example.test/signed-link", Progress, default);
+        Assert.Equal(body, File.ReadAllBytes(path));
+    }
+
     private sealed class ByteProgress : IProgress<DownloadBytes>
     {
         public List<DownloadBytes> Values { get; } = [];

@@ -98,6 +98,20 @@ public class AdbTests(FakeAdb fake) : IClassFixture<FakeAdb>
         }
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task MultiInstallOnlyAddsDowngradeFlagsWhenConfirmed(bool multiple, bool downgrade)
+    {
+        var files = (multiple ? new[] { "base.apk", "arm 64.apk" } : new[] { "base.apk" })
+            .Select(name => Path.Combine(fake.DirectoryPath, name)).ToArray();
+        string[] args = ["-s", Endpoint, multiple ? "install-multiple" : "install", .. (downgrade ? new[] { "-r", "-d" } : Array.Empty<string>()), .. files];
+        fake.Reply(args, "Success");
+        await Client.InstallPackagesAsync(Endpoint, files, downgrade, default);
+    }
+
     [Fact]
     public async Task PairRejectsMultilineCodeBeforeLaunchingAdb()
     {

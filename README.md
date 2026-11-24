@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/easy-adb-mark.svg" alt="Easy ADB 图标" width="96">
+  <img src="docs/assets/easy-adb-icon.png" alt="Easy ADB 图标" width="96">
 </p>
 
 <h1 align="center">Easy ADB</h1>
@@ -166,3 +166,13 @@ dotnet publish src/EasyAdb.Windows -c Release -r win-x64 --self-contained true -
 ## v0.2.0 设备应用管理
 
 连接并选中设备后，打开「设备应用」按包名搜索。选择应用可查看版本及 APK 安装包合计大小（含拆分 APK，不含数据和缓存）。在卸载确认框中核对设备与包名。系统应用仅供查看。
+
+## 0.3.0 本地验收
+
+- 打开「无线连接」查看设备广播的 ADB 服务，首次配对按设备提示输入配对码。成功上线的设备保存在最近连接中，最多五台。老电视首次可手输 IP，之后可一键重连。
+- 选中在线设备后拖入 APK、APKS 或 XAPK 查看预检。使用下载直链时先点击「下载并预检」。明确的系统版本或 CPU 架构冲突会阻止安装。版本和图标取决于包内资源。带 OBB 数据的 XAPK 暂不支持。
+- 安装失败时可查看中文原因和设备原始错误。出现版本降级错误时，可确认后尝试降级；设备仍可能按照其安装策略拒绝。
+- 「文本输入」可向当前设备已聚焦的输入框发送最多 512 个可打印 ASCII 字符。
+- 启动时会查询 GitHub 正式发行版，也可在左下角手动检查更新。点击「查看并下载」会打开公开发行页。
+
+构建安装包需要 Go 1.22 或更高版本和 Android SDK Build-Tools。安装包自带预检工具。

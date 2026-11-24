@@ -11,7 +11,7 @@ import { App } from "@/App";
 import { Bridge } from "@/lib/bridge";
 
 afterEach(cleanup);
-function setup() {
+function setup(compatibility = "compatible") {
   const bus = new EventTarget();
   const devices = ["A", "B"].map((serial) => ({
     serial,
@@ -21,6 +21,21 @@ function setup() {
   const send = (data: unknown) =>
     bus.dispatchEvent(new MessageEvent("message", { data }));
   const postMessage = vi.fn(({ id, action }) => {
+    if (action === "preflightPackage")
+      queueMicrotask(() =>
+        send({
+          id,
+          result: {
+            token: "fixture-token",
+            compatibility,
+            reasons: compatibility === "incompatible" ? ["需要 API 28"] : [],
+            abis: [],
+            format: "apk",
+            selectedSplits: ["base.apk"],
+            packageName: "com.example.apk",
+          },
+        }),
+      );
     if (action === "list")
       queueMicrotask(() => send({ id, result: [...devices] }));
     if (action === "pick")
@@ -39,6 +54,25 @@ function setup() {
 }
 
 describe("桌面工作台", () => {
+  it("已知不兼容的包不能安装", async()=>{
+    const {postMessage}=setup('incompatible');
+    fireEvent.click(await screen.findByRole('button',{name:/测试设备 A/}));
+    fireEvent.click(screen.getByRole('button',{name:/选择 APK/}));
+    await screen.findByText(/需要 API 28/);
+    const start=screen.getByRole('button',{name:'安装到 测试设备 A'}) as HTMLButtonElement;
+    expect(start.disabled).toBe(true);fireEvent.click(start);
+    expect(postMessage.mock.calls.some(([m])=>m.action==='installPreflight')).toBe(false);
+  });
+  it("收到版本降级错误后，只有确认才会发起绑定原快照的降级请求",async()=>{
+    const {postMessage,send}=setup();
+    fireEvent.click(await screen.findByRole('button',{name:/测试设备 A/}));fireEvent.click(screen.getByRole('button',{name:/选择 APK/}));
+    await screen.findByText('设备兼容');fireEvent.click(screen.getByRole('button',{name:'安装到 测试设备 A'}));
+    const installs=()=>postMessage.mock.calls.map(([m])=>m).filter(m=>m.action==='installPreflight');
+    act(()=>send({id:installs()[0].id,error:'INSTALL_FAILED_VERSION_DOWNGRADE'}));
+    fireEvent.click(await screen.findByRole('button',{name:'尝试降级安装'}));expect(installs()).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button',{name:'确认尝试降级'}));
+    expect(installs()[1].payload).toEqual({serial:'A',token:'fixture-token',allowDowngrade:'true'});
+  });
   it("刷新后保留锁定目标，拒绝改投其他设备", async () => {
     const { devices, postMessage } = setup();
     fireEvent.click(await screen.findByRole("button", { name: /测试设备 A/ }));
@@ -51,9 +85,9 @@ describe("桌面工作台", () => {
       (screen.getByRole("button", { name: /安装到/ }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
-    expect(postMessage.mock.calls.some(([m]) => m.action === "install")).toBe(
-      false,
-    );
+    expect(
+      postMessage.mock.calls.some(([m]) => m.action === "installPreflight"),
+    ).toBe(false);
   });
   it("使用宿主路径安装，显示进度，取消后等待安装请求结束", async () => {
     const { send, postMessage, drop } = setup();
@@ -73,13 +107,14 @@ describe("桌面工作台", () => {
     act(() => {
       send({ event: "file", value: "C:\\可信目录\\中文.apk" });
     });
+    await screen.findByText("设备兼容");
     fireEvent.click(screen.getByRole("button", { name: /安装到 测试设备 B/ }));
     const request = postMessage.mock.calls.find(
-      ([m]) => m.action === "install",
+      ([m]) => m.action === "installPreflight",
     )![0];
     expect(request.payload).toEqual({
       serial: "B",
-      file: "C:\\可信目录\\中文.apk",
+      token: "fixture-token",
     });
     act(() => {
       send({ event: "stage", value: "downloading" });
@@ -165,11 +200,17 @@ describe("桌面工作台", () => {
     fireEvent.change(screen.getByLabelText("APK 下载地址"), {
       target: { value: "https://example.test/demo.apk" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "下载并预检" }));
+    await screen.findByText("设备兼容");
     fireEvent.click(submit);
     const install = postMessage.mock.calls.find(
-      ([m]) => m.action === "install",
+      ([m]) => m.action === "installPreflight",
     )![0];
-    expect(install.payload).toEqual({
+    expect(install.payload).toEqual({ serial: "A", token: "fixture-token" });
+    expect(
+      postMessage.mock.calls.find(([m]) => m.action === "preflightPackage")![0]
+        .payload,
+    ).toEqual({
       serial: "A",
       url: "https://example.test/demo.apk",
     });

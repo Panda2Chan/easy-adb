@@ -5,7 +5,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets/EasyAdb.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyName>EasyAdb</AssemblyName>
   </PropertyGroup>
@@ -16,4 +16,11 @@
     <Content Include="../../ui/dist/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <Target Name="CheckUiAssets" BeforeTargets="PrepareForBuild" Condition="!Exists('../../ui/dist/index.html')"><Error Text="Build the React frontend in ui/ first." /></Target>
+  <Target Name="BuildPackageTools" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'">
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildProjectDirectory)/../../installer/Build-PackageTools.ps1&quot; -OutputDirectory &quot;$(TargetDir)package-tools&quot;" />
+  </Target>
+  <Target Name="PublishPackageTools" AfterTargets="Publish" Condition="'$(OS)' == 'Windows_NT'">
+    <ItemGroup><PackageTool Include="$(TargetDir)package-tools/*" /></ItemGroup>
+    <Copy SourceFiles="@(PackageTool)" DestinationFolder="$(PublishDir)package-tools" />
+  </Target>
 </Project>

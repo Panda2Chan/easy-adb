@@ -12,6 +12,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -65,11 +66,11 @@ export function AppLibrary(props: Props) {
   return (
     <section
       aria-label="应用库"
-      className="mx-auto w-full max-w-5xl space-y-5 text-foreground"
+      className="mx-auto w-full max-w-5xl space-y-6 text-sm text-foreground"
     >
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">应用库</h2>
-        <p className="flex items-center gap-2 break-all text-sm text-muted-foreground">
+      <div className="space-y-1">
+        <h2 className="text-xl leading-6 font-semibold">应用库</h2>
+        <p className="flex items-center gap-2 break-all text-xs text-muted-foreground">
           <Smartphone size={16} aria-hidden />
           {serial ? deviceName || serial : "请选择目标设备"}
         </p>
@@ -100,12 +101,12 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border bg-background">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
-          <h3 className="text-sm font-semibold">
+      <div className="overflow-hidden rounded-xl border border-border bg-background">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+          <h3 className="mr-auto text-sm font-semibold">
             已安装应用{" "}
             {list.state.phase === "ready" && (
-              <span className="ml-1 font-mono text-muted-foreground">
+              <span className="ml-1 text-xs font-medium tabular-nums text-muted-foreground">
                 {apps.length}
               </span>
             )}
@@ -113,6 +114,7 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
+              className="size-4 accent-primary"
               checked={showSystem}
               onChange={(event) => setShowSystem(event.target.checked)}
             />
@@ -129,19 +131,19 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
               type="search"
               aria-label="搜索包名"
               placeholder="搜索包名"
-              className="pl-9"
+              className="border-border bg-background pl-9 text-sm"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
         </div>
         {visible.length > 0 ? (
-          <ul className="divide-y">
+          <ul className="divide-y divide-border">
             {visible.map((app) => (
               <li key={app.packageName}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/50 focus-visible:outline-offset-[-3px]"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                   onClick={(event) => {
                     trigger.current = event.currentTarget;
                     setNotice("");
@@ -152,7 +154,7 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
                     <Package size={20} aria-hidden />
                   </span>
                   <span
-                    className="min-w-0 flex-1 truncate font-mono text-sm"
+                    className="min-w-0 flex-1 truncate tabular-nums text-sm"
                     title={app.packageName}
                   >
                     {app.packageName}
@@ -173,7 +175,7 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
             ))}
           </ul>
         ) : (
-          <div className="space-y-3 px-4 py-10 text-center text-sm">
+          <div className="space-y-3 px-4 py-6 text-center text-sm">
             {list.state.phase === "loading" ? (
               <p role="status">正在读取应用列表…</p>
             ) : list.state.phase === "error" ? (
@@ -202,7 +204,7 @@ function DeviceApps({ bridge, serial, deviceName }: Props) {
         )}
       </div>
       {notice && (
-        <p role="status" className="break-all text-sm text-muted-foreground">
+        <p role="status" className="break-all text-xs text-muted-foreground">
           {notice}
         </p>
       )}
@@ -292,16 +294,18 @@ function AppDetails({
           restoreFocus();
         }}
       >
-        <DialogTitle className="break-all pr-6">
-          {confirming ? "确认卸载应用？" : packageName}
-        </DialogTitle>
-        <DialogDescription className="break-all">
-          {confirming
-            ? `将从 ${deviceName || serial}（${serial}）卸载 ${packageName}，其应用数据也可能被删除。`
-            : app.isSystem
-              ? "系统应用"
-              : "用户应用"}
-        </DialogDescription>
+        <DialogHeader>
+          <DialogTitle className="break-all pr-8">
+            {confirming ? "确认卸载应用？" : packageName}
+          </DialogTitle>
+          <DialogDescription className="break-all">
+            {confirming
+              ? `将从 ${deviceName || serial}（${serial}）卸载 ${packageName}，其应用数据也可能被删除。`
+              : app.isSystem
+                ? "系统应用"
+                : "用户应用"}
+          </DialogDescription>
+        </DialogHeader>
         {confirming ? (
           <>
             {error && (
@@ -333,26 +337,26 @@ function AppDetails({
             ) : info.state.phase === "error" ? (
               <Retry message={info.state.message} retry={info.reload} />
             ) : (
-              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-y py-4 text-sm">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 border-y border-border py-4 text-sm">
                 <dt className="text-muted-foreground">版本</dt>
-                <dd className="break-all text-right font-mono">
+                <dd className="break-all text-right tabular-nums">
                   {info.state.value.versionName || "未知"}
                 </dd>
                 <dt className="text-muted-foreground">安装包大小</dt>
-                <dd className="text-right font-mono">
+                <dd className="text-right tabular-nums">
                   {sizeText(info.state.value.sizeBytes)}
                 </dd>
               </dl>
             )}
             {app.isSystem !== false ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 <ShieldCheck size={16} aria-hidden />
                 系统应用受保护，无法卸载。
               </p>
             ) : (
               <Button
                 variant="outline"
-                className="justify-self-end text-destructive"
+                className="justify-self-end text-destructive hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => setConfirming(true)}
               >
                 <Trash2 aria-hidden />

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
+  MonitorSmartphone,
+  Keyboard,
   Layers,
   Check,
   CircleAlert,
@@ -18,6 +20,16 @@ import { Input } from "./components/ui/input";
 import { DevicePanel } from "./components/DevicePanel";
 import { AppLibrary } from "./components/AppLibrary";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "./components/ui/tabs";
+import { ApkPreflight } from "./components/ApkPreflight";
+import { usePackageReview } from "./lib/usePackageReview";
+import { DeviceText } from "./components/DeviceText";
+import { diagnoseInstall } from "./lib/installDiagnosis";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "./components/ui/dialog";
 import { Wireless } from "./components/Wireless";
 
 type Task = {
@@ -28,6 +40,8 @@ type Task = {
   total?: number | null;
   serial?: string;
   source?: string;
+  requestKey?: string;
+  downgradeTried?: boolean;
 };
 const basename = (path: string) => path.split(/[\\/]/).pop() || path;
 function validUrl(text: string) {
@@ -83,7 +97,14 @@ export function App({ bridge }: { bridge: Bridge }) {
       : validUrl(address)
         ? { url: address }
         : null;
+  const review = usePackageReview(
+    bridge,
+    online(device) && !scanError ? serial : "",
+    source,
+  );
   const ready =
+    !!review.report &&
+    review.report.compatibility !== "incompatible" &&
     bridge.available &&
     !busy &&
     !picking &&
@@ -102,9 +123,9 @@ export function App({ bridge }: { bridge: Bridge }) {
     setView("install");
     setDragging(false);
     setMode("file");
-    if (!/\.apk$/i.test(path)) {
+    if (!/\.(apk|apks|xapk)$/i.test(path)) {
       setFile("");
-      setSourceError("请选择 APK 格式的安装包。");
+      setSourceError("请选择 APK、APKS 或 XAPK 安装包。");
       return;
     }
     setFile(path);
@@ -164,8 +185,8 @@ export function App({ bridge }: { bridge: Bridge }) {
     setDragging(false);
     if (busy || picking) return;
     const files = event.dataTransfer.files;
-    if (files.length !== 1 || !/\.apk$/i.test(files[0].name)) {
-      setSourceError("每次请拖入一个 APK 文件。");
+    if (files.length !== 1 || !/\.(apk|apks|xapk)$/i.test(files[0].name)) {
+      setSourceError("每次请拖入一个 APK、APKS 或 XAPK 文件。");
       return;
     }
     setMode("file");
@@ -178,19 +199,38 @@ export function App({ bridge }: { bridge: Bridge }) {
       setSourceError(errorText(err));
     }
   }
-  async function install() {
-    if (!ready || !source || active.current) return;
+  const [confirmKey, setConfirmKey] = useState<string | null>(null);
+  const requestKey = JSON.stringify([serial, source]);
+  const diagnosis =
+    task.phase === "error" ? diagnoseInstall(task.stage) : undefined;
+  async function install(downgrade = false) {
+    if (!ready || !source || !review.report || active.current) return;
+    if (
+      downgrade &&
+      (requestKey !== task.requestKey ||
+        !diagnosis?.downgrade ||
+        confirmKey !== requestKey)
+    )
+      return;
+    setConfirmKey(null);
     active.current = Symbol("install");
     setCancelError("");
     setCancelRequested(false);
     setTask({
       phase: "running",
       stage: "正在准备安装",
+      requestKey,
+      downgradeTried: downgrade,
       serial,
       source: mode === "file" ? basename(file) : address,
     });
     try {
-      await bridge.request("install", { serial, ...source });
+      await bridge.request("installPreflight", {
+        serial,
+        token: review.report.token,
+        ...(downgrade ? { allowDowngrade: "true" as const } : {}),
+      });
+      review.consume();
       setTask((t) => ({
         ...t,
         phase: "success",
@@ -257,11 +297,8 @@ export function App({ bridge }: { bridge: Bridge }) {
       </DevicePanel>
       <section className="desk">
         <div className="devicehead">
-          <div className="screen" aria-hidden="true">
-            <div className="sky">
-              <i />
-              <b />
-            </div>
+          <div className="target-icon" aria-hidden="true">
+            <MonitorSmartphone />
           </div>
           <div>
             <div className="suptitle">当前设备</div>
@@ -290,16 +327,27 @@ export function App({ bridge }: { bridge: Bridge }) {
               <Layers />
               设备应用
             </TabsTrigger>
+            <TabsTrigger value="text" disabled={busy}>
+              <Keyboard />
+              文本输入
+            </TabsTrigger>
           </TabsList>
+          <TabsContent value="text">
+            {online(device) && !scanError ? (
+              <DeviceText
+                key={serial}
+                bridge={bridge}
+                name={device!.name || serial}
+                serial={serial}
+              />
+            ) : (
+              <p className="notice">请选择在线设备。</p>
+            )}
+          </TabsContent>
           <TabsContent value="install">
             <section className="installer">
               <div className="worktitle">
                 <h2>安装 APK</h2>
-                <small>
-                  {device
-                    ? `目标 · ${device.name || serial}`
-                    : "请选择目标设备"}
-                </small>
               </div>
               <Tabs
                 value={mode}
@@ -331,11 +379,9 @@ export function App({ bridge }: { bridge: Bridge }) {
                     <span className="parcel">
                       {file ? <FileBox /> : <PackageOpen />}
                     </span>
-                    <strong>
-                      {file ? basename(file) : "将 APK 文件拖到这里"}
-                    </strong>
+                    <strong>{file ? basename(file) : "拖入安装包"}</strong>
                     <small title={file || undefined}>
-                      {file || "或点击选择本地安装包"}
+                      {file || "或点击选择 APK、APKS、XAPK 文件"}
                     </small>
                   </button>
                 ) : (
@@ -358,6 +404,44 @@ export function App({ bridge }: { bridge: Bridge }) {
                   </div>
                 )}
               </Tabs>
+              {review.pending && (
+                <p role="status">
+                  {mode === "url" ? "正在下载并预检安装包" : "正在预检安装包"}
+                  {review.percent != null ? ` · ${review.percent}%` : ""}
+                  {review.received != null
+                    ? ` · ${(review.received / 1048576).toFixed(1)} MiB`
+                    : ""}{" "}
+                  <Button
+                    variant="link"
+                    onClick={() =>
+                      bridge
+                        .request("cancel", {})
+                        .catch((e) => setSourceError(errorText(e)))
+                    }
+                  >
+                    取消预检
+                  </Button>
+                </p>
+              )}
+              {review.error && (
+                <p role="alert">
+                  {review.error}{" "}
+                  <Button variant="link" onClick={review.retry}>
+                    重新预检
+                  </Button>
+                </p>
+              )}
+              {mode === "url" &&
+                !!source &&
+                online(device) &&
+                !review.pending &&
+                !review.report &&
+                !review.error && (
+                  <Button variant="outline" onClick={review.retry}>
+                    下载并预检
+                  </Button>
+                )}
+              {review.report && <ApkPreflight result={review.report} />}
               {sourceError && (
                 <p className="error" role="alert">
                   {sourceError}
@@ -368,7 +452,7 @@ export function App({ bridge }: { bridge: Bridge }) {
                   <LockKeyhole size={15} />
                   {targetHint}
                 </span>
-                <Button disabled={!ready} onClick={install}>
+                <Button disabled={!ready} onClick={() => install()}>
                   <Upload />
                   <span className="button-label">
                     {serial ? `安装到 ${device?.name || lastName}` : "开始安装"}
@@ -402,9 +486,52 @@ export function App({ bridge }: { bridge: Bridge }) {
                   ) : (
                     <i />
                   )}
-                  <strong>{task.stage}</strong>
+                  <strong>{diagnosis?.title ?? task.stage}</strong>
                   {task.progress !== undefined && <code>{task.progress}%</code>}
                 </div>
+                {diagnosis && (
+                  <div className="space-y-2">
+                    <p>{diagnosis.advice}</p>
+                    <details>
+                      <summary>设备原始错误</summary>
+                      <code>{task.stage}</code>
+                    </details>
+                    {diagnosis.downgrade &&
+                      !task.downgradeTried &&
+                      requestKey === task.requestKey && (
+                        <Button
+                          variant="outline"
+                          disabled={!ready}
+                          onClick={() => setConfirmKey(requestKey)}
+                        >
+                          尝试降级安装
+                        </Button>
+                      )}
+                  </div>
+                )}
+                <Dialog
+                  open={!!confirmKey && confirmKey === requestKey && ready}
+                  onOpenChange={(open) => {
+                    if (!open) setConfirmKey(null);
+                  }}
+                >
+                  <DialogContent>
+                    <DialogTitle>
+                      尝试在 {device?.name || serial} 上降级？
+                    </DialogTitle>
+                    <DialogDescription>
+                      将使用当前选择的安装包。旧版可能无法读取新版保存的数据。Android
+                      通常只允许调试版应用保留数据降级。
+                    </DialogDescription>
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmKey(null)}
+                    >
+                      取消
+                    </Button>
+                    <Button onClick={() => install(true)}>确认尝试降级</Button>
+                  </DialogContent>
+                </Dialog>
                 {task.serial && (
                   <p className="task-info">
                     {task.serial} · {task.source}

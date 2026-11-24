@@ -70,15 +70,27 @@ try {
     $language = Get-ItemPropertyValue -LiteralPath $registration -Name 'Inno Setup: Language'
     if ($language -ne 'zhcn') { throw "Unexpected installer language: $language" }
     Add-Type -AssemblyName System.Drawing
+    $brandPath = Join-Path $PSScriptRoot '../src/EasyAdb.Windows/Assets/EasyAdb.ico'
     foreach ($binary in $Installer, (Join-Path $app 'EasyAdb.exe'), (Join-Path $app 'unins000.exe')) {
         $icon = [Drawing.Icon]::ExtractAssociatedIcon($binary)
+        $reference = [Drawing.Icon]::new($brandPath, $icon.Size)
+        $actual = $icon.ToBitmap()
+        $expected = $reference.ToBitmap()
         try {
-            $bitmap = $icon.ToBitmap()
-            try {
-                $color = $bitmap.GetPixel([int]($bitmap.Width / 2), [int]($bitmap.Height / 4))
-                if ($color.R -ne 18 -or $color.G -ne 60 -or $color.B -ne 42) { throw "Missing brand icon on $binary" }
-            } finally { $bitmap.Dispose() }
-        } finally { $icon.Dispose() }
+            # 比较同尺寸参考图标的内部采样，容许系统缩放的边缘差异。
+            $delta = 0
+            $samples = 0
+            for ($y = 2; $y -lt $actual.Height - 2; $y += 2) {
+                for ($x = 2; $x -lt $actual.Width - 2; $x += 2) {
+                    $a = $actual.GetPixel($x, $y)
+                    $b = $expected.GetPixel($x, $y)
+                    if ($b.A -lt 200) { continue }
+                    $delta += [Math]::Abs([int]$a.R - $b.R) + [Math]::Abs([int]$a.G - $b.G) + [Math]::Abs([int]$a.B - $b.B)
+                    $samples++
+                }
+            }
+            if ($samples -eq 0 -or $delta / (3 * $samples) -gt 18) { throw "Missing brand icon on $binary" }
+        } finally { $expected.Dispose(); $actual.Dispose(); $reference.Dispose(); $icon.Dispose() }
     }
     foreach ($relative in 'EasyAdb.exe','wwwroot\index.html','platform-tools\adb.exe',
             'platform-tools\AdbWinApi.dll','platform-tools\AdbWinUsbApi.dll') {

@@ -8,7 +8,27 @@ export type Source =
   | { url: string; file?: never };
 type Empty = Record<string, never>;
 export type InstalledApp = { packageName: string; isSystem: boolean };
+export type PackageReport = {
+  token: string;
+  format: "apk" | "apks" | "xapk";
+  label: string | null;
+  packageName: string;
+  versionName: string | null;
+  versionCode: string | null;
+  minSdk: number | null;
+  abis: string[];
+  iconDataUrl: string | null;
+  compatibility: "compatible" | "incompatible" | "unknown";
+  reasons: string[];
+  selectedSplits: string[];
+};
 type Payloads = {
+  preflightPackage: { serial: string } & Source;
+  installPreflight: { serial: string; token: string; allowDowngrade?: "true" };
+  discoverDevices: Empty;
+  sendText: { serial: string; text: string };
+  checkUpdate: Empty;
+  openReleases: Empty;
   listApps: { serial: string };
   appInfo: { serial: string; packageName: string };
   uninstallApp: { serial: string; packageName: string };
@@ -19,9 +39,18 @@ type Payloads = {
   cancel: Empty;
   pair: { endpoint: string; code: string };
   connect: { endpoint: string };
-  install: { serial: string } & Source;
 };
 type Results = {
+  preflightPackage: PackageReport;
+  installPreflight: unknown;
+  discoverDevices: {
+    name: string;
+    endpoint: string;
+    kind: "connect" | "pair";
+  }[];
+  sendText: unknown;
+  checkUpdate: { version: string };
+  openReleases: unknown;
   listApps: InstalledApp[];
   appInfo: { versionName: string | null; sizeBytes: number | null };
   uninstallApp: unknown;
@@ -32,7 +61,6 @@ type Results = {
   cancel: unknown;
   pair: unknown;
   connect: unknown;
-  install: unknown;
 };
 export type HostEvent =
   | {

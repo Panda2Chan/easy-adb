@@ -53,11 +53,18 @@ public partial class AdbClient(string executable)
         if (!HasTarget(result, "Successfully paired to ")) throw reply.Failure();
     }
 
-    public async Task InstallAsync(string serial, string file, CancellationToken ct)
+    public string ExecutablePath => executable;
+
+    public Task InstallAsync(string serial, string file, CancellationToken ct) => InstallPackagesAsync(serial, [file], false, ct);
+
+    public async Task InstallPackagesAsync(string serial, IReadOnlyList<string> files, bool downgrade, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serial);
-        ArgumentException.ThrowIfNullOrWhiteSpace(file);
-        var reply = await RunAsync(["-s", serial, "install", Path.GetFullPath(file)], TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
+        if (files.Count == 0) throw new ArgumentException("没有可安装的 APK。");
+        List<string> args = ["-s", serial, files.Count == 1 ? "install" : "install-multiple"];
+        if (downgrade) args.AddRange(["-r", "-d"]);
+        args.AddRange(files.Select(Path.GetFullPath));
+        var reply = await RunAsync(args.ToArray(), TimeSpan.FromMinutes(5), ct).ConfigureAwait(false);
         var lines = Lines(reply.Output);
         if (!lines.Contains("Success", StringComparer.Ordinal) || lines.Concat(Lines(reply.Error)).Any(IsInstallError))
             throw reply.Failure();
@@ -100,6 +107,7 @@ public partial class AdbClient(string executable)
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+        start.Environment["ADB_MDNS_AUTO_CONNECT"] = "0";
         if (code is not null) start.StandardInputEncoding = new UTF8Encoding(false);
         foreach (var arg in args) start.ArgumentList.Add(arg);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);

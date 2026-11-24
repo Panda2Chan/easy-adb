@@ -19,6 +19,8 @@ public partial class MainWindow : Window
     private readonly string session = Path.Combine(Path.GetTempPath(), "easy-adb", Guid.NewGuid().ToString("N"));
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromMinutes(15) };
     private readonly CancellationTokenSource lifetime = new();
+    private readonly HttpClient releaseHttp = new(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+    private System.Net.IPAddress? homeAddress;
     private readonly HashSet<string> selectedFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly ApkDownloader downloader;
     private CancellationTokenSource? installing;
@@ -184,7 +186,7 @@ public partial class MainWindow : Window
             }
             if (action == "drop")
             {
-                if (installing == null && args.AdditionalObjects?.OfType<CoreWebView2File>().FirstOrDefault() is { } file && IsApk(file.Path))
+                if (installing == null && args.AdditionalObjects is { Count: 1 } items && items[0] is CoreWebView2File file && IsApk(file.Path))
                 {
                     selectedFiles.Add(file.Path);
                     Send(new { @event = "file", value = file.Path });
@@ -195,9 +197,16 @@ public partial class MainWindow : Window
             request.TryGetProperty("payload", out var payload);
             string Text(string key) => payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()! : "";
             object? result = null;
+            NativeTools.ValidatePayload(action!, payload);
             switch (action)
             {
                 case "version": result = typeof(MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion; break;
+                case "discoverDevices": result = await Client().DiscoverAsync(homeAddress, lifetime.Token); break;
+                case "sendText": await Client().SendTextAsync(Text("serial"), Text("text"), lifetime.Token); break;
+                case "checkUpdate": result = new { version = await NativeTools.LatestAsync(releaseHttp, lifetime.Token) }; break;
+                case "openReleases":
+                    Process.Start(new ProcessStartInfo(NativeTools.Releases) { UseShellExecute = true })?.Dispose();
+                    break;
                 case "openRepository":
                     Process.Start(new ProcessStartInfo("https://github.com/Panda2Chan/easy-adb") { UseShellExecute = true })?.Dispose();
                     break;
@@ -205,10 +214,13 @@ public partial class MainWindow : Window
                 case "appInfo": result = await Client().AppInfoAsync(Text("serial"), Text("packageName"), lifetime.Token); break;
                 case "uninstallApp": await Client().UninstallAppAsync(Text("serial"), Text("packageName"), lifetime.Token); break;
                 case "list": result = await Client().ListAsync(lifetime.Token); break;
-                case "connect": await Client().ConnectAsync(Text("endpoint"), lifetime.Token); break;
+                case "connect":
+                    await Client().ConnectAsync(Text("endpoint"), lifetime.Token);
+                    homeAddress = NativeTools.HomeAddress(Text("endpoint"));
+                    break;
                 case "pair": await Client().PairAsync(Text("endpoint"), Text("code"), lifetime.Token); break;
                 case "pick":
-                    var dialog = new OpenFileDialog { Filter = "Android 应用 (*.apk)|*.apk", CheckFileExists = true };
+                    var dialog = new OpenFileDialog { Filter = "Android 安装包 (*.apk;*.apks;*.xapk)|*.apk;*.apks;*.xapk", CheckFileExists = true };
                     // 等 WebView2 消息回调返回，再打开原生模态对话框。
                     if (await Dispatcher.InvokeAsync(() => dialog.ShowDialog(this)) == true && IsApk(dialog.FileName))
                     {
@@ -216,7 +228,8 @@ public partial class MainWindow : Window
                         result = dialog.FileName;
                     }
                     break;
-                case "install": await InstallAsync(Text("serial"), Text("file"), Text("url")); break;
+                case "preflightPackage": result = await PreflightAsync(Text("serial"), Text("file"), Text("url")); break;
+                case "installPreflight": await InstallPreparedAsync(Text("serial"), Text("token"), Text("allowDowngrade") == "true"); break;
                 case "cancel": installing?.Cancel(); break;
                 default: throw new InvalidOperationException("未知操作。");
             }
@@ -229,9 +242,9 @@ public partial class MainWindow : Window
         }
     }
 
-    private static bool IsApk(string file) => string.Equals(Path.GetExtension(file), ".apk", StringComparison.OrdinalIgnoreCase) && File.Exists(file);
+    private static bool IsApk(string file) => new[] { ".apk", ".apks", ".xapk" }.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase) && File.Exists(file);
 
-    private async Task InstallAsync(string serial, string file, string url)
+    private async Task<object> PreflightAsync(string serial, string file, string url)
     {
         if (installing != null) throw new InvalidOperationException("已有安装任务正在进行。");
         if (string.IsNullOrWhiteSpace(serial)) throw new ArgumentException("请先选择目标设备。");
@@ -257,8 +270,7 @@ public partial class MainWindow : Window
                     throw new TimeoutException("下载超时，请检查网络后重试。");
                 }
             }
-            Send(new { @event = "stage", value = "installing" });
-            await client.InstallAsync(serial, file, operation.Token);
+            return await PrepareFilesAsync(client, serial, file, operation.Token);
         }
         finally
         {
@@ -272,6 +284,7 @@ public partial class MainWindow : Window
         closing = true;
         lifetime.Cancel();
         if (installing != null) { args.Cancel = true; return; }
+        releaseHttp.Dispose();
         http.Dispose();
         Browser.Dispose();
         try { if (Directory.Exists(session)) Directory.Delete(session, recursive: true); }
